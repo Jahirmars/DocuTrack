@@ -5,7 +5,7 @@ import authRoutes from './routes/auth.js';
 
 dotenv.config();
 const app = express();
-app.use(cors({origin: process.env.CORS_ORIGIN ||'http://localhost:3000'}));
+app.use(cors({origin: process.env.CORS_ORIGIN ||'http://localhost:4000'}));
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
