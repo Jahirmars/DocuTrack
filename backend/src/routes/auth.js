@@ -1,4 +1,3 @@
-// backend/src/routes/auth.js
 import { Router } from 'express';
 import pool  from '../db.js';
 import bcrypt from 'bcrypt';
@@ -21,6 +20,10 @@ router.post('/register', async (req, res) => {
 
     // Hashear la contraseña
     const hash = await bcrypt.hash(password, 10);
+
+
+
+  
 
     // Insertar el usuario con role 'USER'
     const inserted = await pool.query(

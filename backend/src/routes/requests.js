@@ -24,6 +24,7 @@ router.post('/', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al crear la solicitud' });
+    console.error(err);
   }
 });
 
@@ -68,7 +69,6 @@ router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) 
     });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Error al subir el archivo' });
   }
 });
@@ -97,6 +97,46 @@ router.get('/:id/documents', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener documentos' });
+  }
+});
+
+//Cambiar estado de una solicitud (solo ADMIN)
+router.patch('/:id/status', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  // Solo ADMIN puede cambiar estado
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Solo un ADMIN puede cambiar el estado' });
+  }
+
+  // Validar estado permitido
+  const estadosPermitidos = ['Pendiente', 'En revisión', 'Emitido', 'Rechazado'];
+  if (!estadosPermitidos.includes(status)) {
+    return res.status(400).json({ error: `Estado inválido. Debe ser uno de: ${estadosPermitidos.join(', ')}` });
+  }
+
+  try {
+    const r = await pool.query('SELECT * FROM requests WHERE id=$1', [id]);
+    if (!r.rowCount) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+
+    const updated = await pool.query(
+      `UPDATE requests
+       SET status=$1
+       WHERE id=$2
+       RETURNING *`,
+      [status, id]
+    );
+
+    res.json({
+      message: `Estado actualizado a "${status}"`,
+      request: updated.rows[0]
+    });
+  } catch (err) {
+console.error(err);
+    res.status(500).json({ error: 'Error al actualizar el estado' });
   }
 });
 
