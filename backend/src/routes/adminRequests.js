@@ -52,7 +52,7 @@ router.get('/:id/admin-view', requireAuth, async (req, res) => {
  */
 router.patch('/:id/status', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, note } = req.body;
 
   if (req.user.role !== 'ADMIN') {
     return res.status(403).json({ error: 'Solo ADMIN puede cambiar el estado' });
@@ -67,10 +67,10 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   try {
     const updated = await pool.query(
       `UPDATE requests
-       SET status = $1
-       WHERE id = $2
+       SET status = $1, status_note = $2
+       WHERE id = $3
        RETURNING *`,
-      [status, id]
+      [status, note || null, id]
     );
 
     if (!updated.rowCount) {

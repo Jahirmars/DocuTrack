@@ -74,36 +74,42 @@ router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) 
 });
 
 //Listar documentos de una solicitud
-router.get('/:id/documents', requireAuth, async (req, res) => {
-  const { id } = req.params;
-
+// Listar solicitudes del usuario autenticado (o todas si es ADMIN)
+router.get('/', requireAuth, async (req, res) => {
   try {
-    const r = await pool.query('SELECT * FROM requests WHERE id=$1', [id]);
-    if (!r.rowCount) {
-      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    let result;
+
+    if (req.user.role === 'ADMIN') {
+      // Admin ve todas las solicitudes
+      result = await pool.query(
+        `SELECT r.id, r.user_id, u.name AS user_name, u.email AS user_email,
+                r.request_type, r.status, r.status_note, r.created_at, r.updated_at
+         FROM requests r
+         JOIN users u ON r.user_id = u.id
+         ORDER BY r.created_at DESC`
+      );
+    } else {
+      // Usuario ve solo las suyas
+      result = await pool.query(
+        `SELECT id, request_type, status, status_note, created_at, updated_at
+         FROM requests
+         WHERE user_id = $1
+         ORDER BY created_at DESC`,
+        [req.user.id]
+      );
     }
 
-    const solicitud = r.rows[0];
-    if (req.user.role !== 'ADMIN' && solicitud.user_id !== req.user.id) {
-      return res.status(403).json({ error: 'No autorizado' });
-    }
-
-    const docs = await pool.query(
-      'SELECT * FROM documents WHERE request_id=$1 ORDER BY uploaded_at DESC',
-      [id]
-    );
-
-    res.json(docs.rows);
+    res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Error al obtener documentos' });
+    res.status(500).json({ error: 'Error al obtener las solicitudes' });
   }
 });
 
 //Cambiar estado de una solicitud (solo ADMIN)
 router.patch('/:id/status', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, note } = req.body;
 
   // Solo ADMIN puede cambiar estado
   if (req.user.role !== 'ADMIN') {
@@ -111,7 +117,7 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   }
 
   // Validar estado permitido
-  const estadosPermitidos = ['Pendiente', 'En revisión', 'Emitido', 'Rechazado'];
+  const estadosPermitidos = ['Pendiente', 'En revisión', 'Emitido', 'Rechazado', 'Corrección solicitada'];
   if (!estadosPermitidos.includes(status)) {
     return res.status(400).json({ error: `Estado inválido. Debe ser uno de: ${estadosPermitidos.join(', ')}` });
   }
@@ -124,10 +130,10 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
 
     const updated = await pool.query(
       `UPDATE requests
-       SET status=$1
-       WHERE id=$2
+       SET status = $1, status_note = $2
+       WHERE id = $3
        RETURNING *`,
-      [status, id]
+      [status, note || null, id]
     );
 
     res.json({
@@ -135,7 +141,7 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
       request: updated.rows[0]
     });
   } catch (err) {
-console.error(err);
+    console.error(err);
     res.status(500).json({ error: 'Error al actualizar el estado' });
   }
 });
