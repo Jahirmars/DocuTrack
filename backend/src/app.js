@@ -4,6 +4,7 @@ import cors from 'cors';
 import authRoutes from './routes/auth.js';
 import requestsRoutes from './routes/requests.js';
 import pdfRoutes from './routes/pdf.js';
+import certificateRoutes from './routes/certificate.js';
 
 dotenv.config();
 const app = express();
@@ -15,6 +16,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/certificate', certificateRoutes);
 
 
 const PORT = process.env.PORT || 4000;
