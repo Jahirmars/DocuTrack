@@ -5,6 +5,8 @@ import authRoutes from './routes/auth.js';
 import requestsRoutes from './routes/requests.js';
 import pdfRoutes from './routes/pdf.js';
 import certificateRoutes from './routes/certificate.js';
+import adminRequestsRoutes from './routes/adminRequests.js';
+
 
 dotenv.config();
 const app = express();
@@ -17,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/pdf', pdfRoutes);
 app.use('/api/certificate', certificateRoutes);
+app.use('/api/requests', adminRequestsRoutes);
 
 
 const PORT = process.env.PORT || 4000;
