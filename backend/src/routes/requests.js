@@ -27,7 +27,7 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// DUBIR ARCHIVO PF
+// SUBIR ARCHIVO PDF o imagen
 router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) => {
   const { id } = req.params;
   const file = req.file;
@@ -47,11 +47,19 @@ router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) 
       return res.status(403).json({ error: 'No autorizado para subir archivos a esta solicitud' });
     }
 
+    // Usar nombre original o generar uno por defecto
+    const fileName = file.originalname || `archivo_${Date.now()}`;
+
     const inserted = await pool.query(
-      `INSERT INTO documents (request_id, file_url, file_type)
-       VALUES ($1, $2, $3)
+      `INSERT INTO documents (request_id, file_name, file_url, file_type)
+       VALUES ($1, $2, $3, $4)
        RETURNING *`,
-      [id, file.path, file.mimetype.includes('pdf') ? 'PDF' : 'IMG']
+      [
+        id,
+        fileName,
+        file.path, // URL en Cloudinary
+        file.mimetype.includes('pdf') ? 'PDF' : 'IMG'
+      ]
     );
 
     res.status(201).json({
@@ -59,12 +67,11 @@ router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) 
       document: inserted.rows[0]
     });
 
-    } catch (err) {
+  } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al subir el archivo' });
   }
 });
-
 
 //Listar documentos de una solicitud
 router.get('/:id/documents', requireAuth, async (req, res) => {
