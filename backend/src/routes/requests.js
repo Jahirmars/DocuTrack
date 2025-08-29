@@ -1,4 +1,4 @@
-import Router  from 'express';
+import {Router}  from 'express';
 import pool from '../db.js';
 import { requireAuth } from '../middlewares/auth.js';
 
@@ -16,7 +16,7 @@ router.post('/', requireAuth, async (req, res) => {
       `INSERT INTO requests (user_id, request_type, details)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [req.user.id, 'Certificado simple', { nombre, cedula }]
+      [req.user.id, 'Certificado Docutrack', { nombre, cedula }]
     );
 
     res.status(201).json(inserted.rows[0]);
