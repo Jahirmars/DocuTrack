@@ -1,18 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/auth-context.jsx';
+import { AuthProvider } from './context/auth-context.jsx';
 
 import Login from './pages/login.jsx';
 import Register from './pages/register.jsx';
-//import UserPanel from './pages/user-panel.jsx';
-//import AdminPanel from './pages/admin-panel.jsx';
-
-const PrivateRoute = ({ children, role }) => {
-  const { token, role: userRole } = useAuth();
-  if (!token || userRole !== role) {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
-};
+import UserPanel from './pages/user-panel.jsx';
+import AdminPanel from './pages/admin-panel.jsx';
+import PrivateRoute from './components/PrivateRoute.jsx';
 
 export default function App() {
   return (
@@ -26,9 +19,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-
-
-       /*   {/* Rutas protegidas 
+          {/* Rutas protegidas */}
           <Route
             path="/user/*"
             element={
@@ -45,11 +36,8 @@ export default function App() {
               </PrivateRoute>
             }
           />
-*/}
 
-
-
-          {/* Ruta por defecto si no coincide ninguna */}
+          
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
