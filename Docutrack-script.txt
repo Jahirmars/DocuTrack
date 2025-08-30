@@ -1,0 +1,43 @@
+-- Crear base de datos
+CREATE DATABASE docutrack;
+
+
+-- ============================================
+-- Tabla de usuarios
+-- ============================================
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role VARCHAR(20) DEFAULT 'USER' CHECK (role IN ('USER', 'ADMIN')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- Tabla de solicitudes
+-- ============================================
+CREATE TABLE requests (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    request_type VARCHAR(100) NOT NULL,  -- Ejemplo: Certificado de nacimiento
+    description TEXT,                    -- Detalles adicionales
+    status VARCHAR(20) DEFAULT 'Recibido' 
+        CHECK (status IN ('Recibido', 'Validación', 'Emitido', 'Rechazado', 'Corrección')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ============================================
+-- Tabla de documentos (Cloudinary)
+-- ============================================
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    request_id INT NOT NULL,
+    file_name VARCHAR(255) NOT NULL,     -- nombre original o asignado en Cloudinary
+    file_url TEXT NOT NULL,              -- URL pública de Cloudinary
+    file_type VARCHAR(50),               -- MIME type (ej: application/pdf, image/png)
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (request_id) REFERENCES requests(id) ON DELETE CASCADE
+);
