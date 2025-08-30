@@ -58,7 +58,7 @@ router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) 
       [
         id,
         fileName,
-        file.path, // URL en Cloudinary
+        file.path, 
         file.mimetype.includes('pdf') ? 'PDF' : 'IMG'
       ]
     );
@@ -73,22 +73,22 @@ router.post('/:id/upload', requireAuth, upload.single('file'), async (req, res) 
   }
 });
 
-//Listar documentos de una solicitud
 // Listar solicitudes del usuario autenticado (o todas si es ADMIN)
 router.get('/', requireAuth, async (req, res) => {
   try {
     let result;
 
     if (req.user.role === 'ADMIN') {
-      // Admin ve todas las solicitudes
-      result = await pool.query(
-        `SELECT r.id, r.user_id, u.name AS user_name, u.email AS user_email,
-                r.request_type, r.status, r.status_note, r.created_at, r.updated_at
-         FROM requests r
-         JOIN users u ON r.user_id = u.id
-         ORDER BY r.created_at DESC`
-      );
-    } else {
+  result = await pool.query(
+    `SELECT r.id, r.user_id, u.name AS user_name, u.email AS user_email,
+      r.request_type, r.status, r.status_note, r.details,
+      r.created_at, r.updated_at
+     FROM requests r
+     JOIN users u ON r.user_id = u.id
+     ORDER BY r.created_at DESC`
+  );
+}
+ else {
       // Usuario ve solo las suyas
       result = await pool.query(
         `SELECT id, request_type, status, status_note, created_at, updated_at
@@ -171,6 +171,27 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+//ruta para obtener el pdf subido por el user
+router.get('/:id/file', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const r = await pool.query(
+      `SELECT file_url FROM documents WHERE request_id = $1 ORDER BY uploaded_at DESC LIMIT 1`,
+      [id]
+    );
+
+    if (!r.rowCount || !r.rows[0].file_url) {
+      return res.status(404).json({ error: 'Archivo no encontrado o sin URL válida' });
+    }
+
+    const { file_url } = r.rows[0];
+    res.json({ file_url });
+  } catch (err) {
+    console.error("Error al obtener archivo:", err);
+    res.status(500).json({ error: 'Error interno al recuperar el archivo' });
+  }
+});
 
 
 
