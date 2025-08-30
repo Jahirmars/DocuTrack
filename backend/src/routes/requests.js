@@ -146,6 +146,32 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   }
 });
 
+// Ver detalles de una solicitud específica
+router.get('/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const r = await pool.query('SELECT * FROM requests WHERE id = $1', [id]);
+
+    if (!r.rowCount) {
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+
+    const solicitud = r.rows[0];
+
+    // Si el usuario no es admin, solo puede ver su propia solicitud
+    if (req.user.role !== 'ADMIN' && solicitud.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'No autorizado para ver esta solicitud' });
+    }
+
+    res.json(solicitud);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener la solicitud' });
+  }
+});
+
+
 
 
  export default router;
