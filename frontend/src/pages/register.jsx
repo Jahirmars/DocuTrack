@@ -8,7 +8,7 @@ export default function Register() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
-  const [accepted, setAccepted] = useState(true); // ponlo en false si quieres forzar aceptación
+  const [accepted, setAccepted] = useState(true);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -19,7 +19,6 @@ export default function Register() {
 
   const emailOk = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email), [form.email]);
 
-  // medidor simple de fuerza
   const pwdScore = useMemo(() => {
     let score = 0;
     if (form.password.length >= 6) score++;
@@ -32,13 +31,7 @@ export default function Register() {
 
   const pwdLabel = ["Débil", "Básica", "Media", "Fuerte", "Sólida"][pwdScore] || "Débil";
   const pwdColor =
-    pwdScore <= 1
-      ? "bg-rose-500"
-      : pwdScore === 2
-      ? "bg-amber-500"
-      : pwdScore === 3
-      ? "bg-emerald-500"
-      : "bg-cyan-500";
+    pwdScore <= 1 ? "bg-rose-500" : pwdScore === 2 ? "bg-amber-500" : pwdScore === 3 ? "bg-emerald-500" : "bg-cyan-500";
 
   const validate = () => {
     if (!form.name.trim()) return "Ingresa tu nombre completo.";
@@ -52,10 +45,7 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const v = validate();
-    if (v) {
-      setErrMsg(v);
-      return;
-    }
+    if (v) return setErrMsg(v);
 
     setLoading(true);
     setErrMsg("");
@@ -66,14 +56,27 @@ export default function Register() {
         password: form.password,
       });
 
-      const { token, role, user } = res.data || {};
-      if (!token || !role) throw new Error("Respuesta de registro incompleta.");
+      // Tolerante a diferentes formas de respuesta
+      const data = res?.data || {};
+      const token = data.token || data.accessToken || data.jwt;
+      const role = data.role || data.user?.role;
+      const user = data.user || { name: form.name, email: form.email };
 
-      login(token, role, user || { name: form.name, email: form.email });
-      navigate(role === "ADMIN" ? "/admin" : "/user");
+      if (token && role) {
+        // Auto login si el backend lo permite
+        login(token, role, user);
+        navigate(role === "ADMIN" ? "/admin" : "/user");
+      } else {
+        // Registro ok sin token: lleva al login
+        navigate("/login", {
+          state: { justRegistered: true, email: form.email },
+          replace: true,
+        });
+      }
     } catch (err) {
       const apiErr =
         err.response?.data?.error ||
+        err.response?.data?.message ||
         err.message ||
         "Error al registrarse. Inténtalo nuevamente.";
       setErrMsg(apiErr);
@@ -84,9 +87,7 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-slate-100 flex items-center justify-center px-6 py-12">
-      {/* Card moderna en 2 columnas en desktop */}
       <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl bg-slate-900/60 backdrop-blur-md">
-        {/* Lado visual/branding con imagen temática del proyecto (documentos/certificados) */}
         <div className="relative hidden lg:block">
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-sky-500/10 to-cyan-500/10" />
           <img
@@ -100,21 +101,15 @@ export default function Register() {
               DocuTrack
             </h2>
             <p className="text-slate-300 mt-2">
-              Regístrate para gestionar tus solicitudes y certificados con seguridad y
-              trazabilidad.
+              Regístrate para gestionar tus solicitudes y certificados con seguridad y trazabilidad.
             </p>
           </div>
         </div>
 
-        {/* Lado del formulario */}
         <div className="p-8 lg:p-10">
           <header className="mb-6">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-100">
-              Crea tu cuenta
-            </h1>
-            <p className="text-sm text-slate-300 mt-1">
-              Completa los datos para comenzar. Solo toma un minuto.
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-100">Crea tu cuenta</h1>
+            <p className="text-sm text-slate-300 mt-1">Completa los datos para comenzar. Solo toma un minuto.</p>
           </header>
 
           {errMsg && (
@@ -124,11 +119,8 @@ export default function Register() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Nombre */}
             <div className="space-y-2">
-              <label htmlFor="name" className="block text-sm text-slate-300">
-                Nombre completo
-              </label>
+              <label htmlFor="name" className="block text-sm text-slate-300">Nombre completo</label>
               <input
                 id="name"
                 type="text"
@@ -142,11 +134,8 @@ export default function Register() {
               />
             </div>
 
-            {/* Email */}
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm text-slate-300">
-                Correo electrónico
-              </label>
+              <label htmlFor="email" className="block text-sm text-slate-300">Correo electrónico</label>
               <input
                 id="email"
                 type="email"
@@ -161,11 +150,8 @@ export default function Register() {
               />
             </div>
 
-            {/* Password + medidor */}
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm text-slate-300">
-                Contraseña
-              </label>
+              <label htmlFor="password" className="block text-sm text-slate-300">Contraseña</label>
               <div className="relative">
                 <input
                   id="password"
@@ -189,13 +175,9 @@ export default function Register() {
                 </button>
               </div>
 
-              {/* Barra de fuerza */}
               <div className="mt-2">
                 <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
-                  <div
-                    className={`h-2 ${pwdColor} transition-all duration-300`}
-                    style={{ width: `${(pwdScore / 4) * 100}%` }}
-                  />
+                  <div className={`h-2 ${pwdColor} transition-all duration-300`} style={{ width: `${(pwdScore / 4) * 100}%` }} />
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs">
                   <span className="text-slate-300">Fuerza: {pwdLabel}</span>
@@ -204,7 +186,6 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Términos (opcional) */}
             <div className="flex items-start gap-3">
               <input
                 id="terms"
@@ -213,9 +194,7 @@ export default function Register() {
                 onChange={(e) => setAccepted(e.target.checked)}
                 className="mt-0.5 h-4 w-4 rounded border-slate-600 bg-slate-800 text-cyan-500 focus:ring-cyan-400"
               />
-              <label htmlFor="terms" className="text-sm text-slate-300">
-                Acepto los términos y la política de privacidad.
-              </label>
+              <label htmlFor="terms" className="text-sm text-slate-300">Acepto los términos y la política de privacidad.</label>
             </div>
 
             <button
@@ -235,10 +214,7 @@ export default function Register() {
 
             <p className="text-center text-sm text-slate-300">
               ¿Ya tienes cuenta?{" "}
-              <Link
-                to="/login"
-                className="text-cyan-300 hover:text-cyan-200 transition underline-offset-2 hover:underline"
-              >
+              <Link to="/login" className="text-cyan-300 hover:text-cyan-200 transition underline-offset-2 hover:underline">
                 Inicia sesión aquí
               </Link>
             </p>

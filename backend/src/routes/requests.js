@@ -107,45 +107,78 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 //Cambiar estado de una solicitud (solo ADMIN)
-router.patch('/:id/status', requireAuth, async (req, res) => {
+router.patch("/:id/status", requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { status, note } = req.body;
+  let { status, note } = req.body;
 
   // Solo ADMIN puede cambiar estado
-  if (req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Solo un ADMIN puede cambiar el estado' });
+  if (req.user.role !== "ADMIN") {
+    return res.status(403).json({ error: "Solo un ADMIN puede cambiar el estado" });
   }
 
-  // Validar estado permitido
-  const estadosPermitidos = ['Pendiente', 'En revisión', 'Emitido', 'Rechazado', 'Corrección solicitada'];
-  if (!estadosPermitidos.includes(status)) {
-    return res.status(400).json({ error: `Estado inválido. Debe ser uno de: ${estadosPermitidos.join(', ')}` });
+  // Estados que TU DB permite (coincide con la restricción CHECK)
+  const ALLOWED_DB = new Set(["Pendiente", "Emitido", "Rechazado"]);
+
+  // Mapeos UI -> DB (lo que se muestra vs lo que acepta la DB)
+  const UI_TO_DB = {
+    "En revisión": "Pendiente",
+    "Corrección solicitada": "Pendiente", // si quieres mapearla a pendiente
+  };
+
+  // Mapeo DB -> UI (para responder algo amigable si quieres)
+  const DB_TO_UI = (s) => (s === "Pendiente" ? "En revisión" : s);
+
+  // Normaliza el estado entrante
+  if (!status || typeof status !== "string") {
+    return res.status(400).json({ error: "Estado es requerido" });
+  }
+  status = UI_TO_DB[status] || status;
+
+  // Valida contra lo que permite la DB
+  if (!ALLOWED_DB.has(status)) {
+    return res.status(400).json({
+      error: `Estado inválido. Debe ser uno de: ${Array.from(ALLOWED_DB).join(", ")}`,
+    });
+  }
+
+  // Normaliza la nota (opcional)
+  if (note != null && typeof note === "string") {
+    note = note.trim() || null;
+  } else {
+    note = null;
   }
 
   try {
-    const r = await pool.query('SELECT * FROM requests WHERE id=$1', [id]);
-    if (!r.rowCount) {
-      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    const exists = await pool.query("SELECT id FROM requests WHERE id=$1", [id]);
+    if (!exists.rowCount) {
+      return res.status(404).json({ error: "Solicitud no encontrada" });
     }
 
     const updated = await pool.query(
       `UPDATE requests
-       SET status = $1, status_note = $2
+       SET status = $1, status_note = $2, updated_at = NOW()
        WHERE id = $3
-       RETURNING *`,
-      [status, note || null, id]
+       RETURNING id, status, status_note, updated_at`,
+      [status, note, id]
     );
 
-    res.json({
-      message: `Estado actualizado a "${status}"`,
-      request: updated.rows[0]
+    const row = updated.rows[0];
+
+    // Respuesta clara: qué se guardó en DB y cómo mostrarlo en la UI
+    return res.json({
+      ok: true,
+      id: row.id,
+      status_db: row.status,
+      status_ui: DB_TO_UI(row.status),
+      status_note: row.status_note,
+      updated_at: row.updated_at,
+      message: `Estado actualizado a "${DB_TO_UI(row.status)}"`,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Error al actualizar el estado' });
+    console.error("PATCH /requests/:id/status error:", err);
+    return res.status(500).json({ error: "Error al actualizar el estado" });
   }
 });
-
 // Ver detalles de una solicitud específica
 router.get('/:id', requireAuth, async (req, res) => {
   const { id } = req.params;
