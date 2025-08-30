@@ -6,11 +6,10 @@ export default function AdminPanel() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Obtener solicitudes desde el backend
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const res = await fetch("/api/admin/requests", {
+        const res = await fetch("http://localhost:4000/api/requests", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -27,60 +26,51 @@ export default function AdminPanel() {
     fetchRequests();
   }, [token]);
 
-  const handleApprove = async (id) => {
+  const handleStatusChange = async (id, status) => {
     try {
-      await fetch(`/api/admin/requests/${id}/approve`, {
-        method: "POST",
+      await fetch(`http://localhost:4000/api/requests/${id}/status`, {
+        method: "PATCH",
         headers: {
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ status }),
       });
-      setRequests((prev) =>
-        prev.map((req) =>
-          req._id === id ? { ...req, status: "aprobado" } : req
-        )
-      );
-    } catch (err) {
-      console.error("Error al aprobar:", err);
-    }
-  };
 
-  const handleReject = async (id) => {
-    try {
-      await fetch(`/api/admin/requests/${id}/reject`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
       setRequests((prev) =>
         prev.map((req) =>
-          req._id === id ? { ...req, status: "rechazado" } : req
+          req.id === id ? { ...req, status } : req
         )
       );
     } catch (err) {
-      console.error("Error al rechazar:", err);
+      console.error("Error al cambiar estado:", err);
     }
   };
 
   const handleDownload = async (id) => {
-    try {
-      const res = await fetch(`/api/admin/requests/${id}/certificate`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `certificado-${id}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("Error al descargar certificado:", err);
+  try {
+    const res = await fetch(`http://localhost:4000/api/requests/${id}/file`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+      throw new Error("Archivo no disponible");
     }
-  };
+
+    const { file_url } = await res.json();
+
+    if (file_url) {
+      window.open(file_url, "_blank"); // ✅ abre el PDF directamente en una pestaña nueva
+    } else {
+      alert("Esta solicitud no tiene archivo adjunto.");
+    }
+  } catch (err) {
+    console.error("Error al descargar archivo:", err);
+    alert("No se pudo descargar el archivo.");
+  }
+};
+
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
@@ -89,44 +79,43 @@ export default function AdminPanel() {
       {loading ? (
         <p className="text-center text-gray-400">Cargando solicitudes...</p>
       ) : requests.length === 0 ? (
-        <p className="text-center text-gray-400">No hay solicitudes pendientes.</p>
+        <p className="text-center text-gray-400">No hay solicitudes registradas.</p>
       ) : (
         <div className="space-y-6">
           {requests.map((req) => (
             <div
-              key={req._id}
+              key={req.id}
               className="bg-gray-800 p-4 rounded-lg shadow-md space-y-2"
             >
-              <p><span className="font-semibold">Usuario:</span> {req.userName}</p>
-              <p><span className="font-semibold">Correo:</span> {req.email}</p>
+              <p><span className="font-semibold">Nombre:</span> {req.details?.nombre}</p>
+              <p><span className="font-semibold">Cédula:</span> {req.details?.cedula}</p>
               <p><span className="font-semibold">Estado:</span> {req.status}</p>
 
-              {req.fileUrl && (
-                <a
-                  href={req.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-400 underline"
-                >
-                  Ver archivo adjunto
-                </a>
+              {req.status_note && (
+                <p className="text-sm text-gray-400 italic">Nota: {req.status_note}</p>
               )}
 
               <div className="flex gap-3 mt-3">
                 <button
-                  onClick={() => handleApprove(req._id)}
-                  className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 transition"
+                  onClick={() => handleStatusChange(req.id, "En revisión")}
+                  className="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600 transition"
                 >
-                  Aprobar
+                  Validar
                 </button>
                 <button
-                  onClick={() => handleReject(req._id)}
+                  onClick={() => handleStatusChange(req.id, "Rechazado")}
                   className="bg-red-600 px-4 py-2 rounded hover:bg-red-700 transition"
                 >
                   Rechazar
                 </button>
                 <button
-                  onClick={() => handleDownload(req._id)}
+                  onClick={() => handleStatusChange(req.id, "Emitido")}
+                  className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 transition"
+                >
+                  Emitir
+                </button>
+                <button
+                  onClick={() => handleDownload(req.id)}
                   className="bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700 transition"
                 >
                   Descargar certificado
